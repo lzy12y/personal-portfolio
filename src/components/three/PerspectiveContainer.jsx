@@ -1,38 +1,105 @@
-import { useMemo } from 'react'
-import { motion, useScroll, useTransform } from 'framer-motion'
+import { useMemo, useState, useRef, useEffect } from 'react'
+import { motion, useScroll, useVelocity, useTransform, useMotionValueEvent } from 'framer-motion'
+import TunnelParticles from './TunnelParticles'
 
 const PLANES = [
-  { id: 'top', label: '视频', sublabel: 'VIDEO', color: '#4ECDC4', icon: '🎬' },
-  { id: 'right', label: '设计', sublabel: 'DESIGN', color: '#45B7D1', icon: '🏛' },
-  { id: 'bottom', label: '创意', sublabel: 'IDEAS', color: '#FF6B6B', icon: '💡' },
-  { id: 'left', label: '摄影', sublabel: 'PHOTOGRAPHY', color: '#96CEB4', icon: '📷' },
+  { id: 'left',   label: '摄影', sublabel: 'PHOTOGRAPHY',  icon: '📷' },
+  { id: 'right',  label: '设计', sublabel: 'DESIGN',       icon: '🏛' },
+  { id: 'top',    label: '视频', sublabel: 'VIDEO',        icon: '🎬' },
+  { id: 'bottom', label: '创意', sublabel: 'IDEAS',        icon: '💡' },
 ]
 
+// fit tunnel surfaces: left/right walls, ceiling, floor
 const POSITION = {
-  top:    'translate(-50%, -50%) translateY(-35vh) rotateX(15deg)',
-  bottom: 'translate(-50%, -50%) translateY(35vh) rotateX(-15deg)',
-  left:   'translate(-50%, -50%) translateX(-35vw) rotateY(15deg)',
-  right:  'translate(-50%, -50%) translateX(35vw) rotateY(-15deg)',
+  left:   'translate(-50%, -50%) translateX(-32vw) rotateY(-75deg)',
+  right:  'translate(-50%, -50%) translateX(32vw) rotateY(75deg)',
+  top:    'translate(-50%, -50%) translateY(-32vh) rotateX(75deg)',
+  bottom: 'translate(-50%, -50%) translateY(32vh) rotateX(-75deg)',
 }
 
-// 每个平面不同的 Z 轴深度区间
-const ZONE = [
-  [280, -40],  // top - 起始最深
-  [230, -10],  // right
-  [190,  10],  // bottom
-  [150,  30],  // left - 起始最浅
-]
+// ceiling/floor → wide panels; left/right walls → tall panels
+const DIMENSIONS = {
+  top:    { w: 520, h: 120 },
+  bottom: { w: 520, h: 120 },
+  left:   { w: 140, h: 380 },
+  right:  { w: 140, h: 380 },
+}
 
-function GuideLines() {
+// Z offsets per spec: top=-100, bottom=100
+const Z_OFFSET = { top: -100, bottom: 100, left: 0, right: 50 }
+
+//
+// 消失点放射光束 — 从远方而来的光线，随速度增强
+//
+function LightRays({ velocity }) {
+  const rayOpacity = useTransform(velocity, [0, 400], [0.45, 1])
+
+  const beams = useMemo(() => {
+    const angles = [12, 68, 135, 190, 240, 295, 340]
+    return angles.map((deg, i) => {
+      const rad = (deg * Math.PI) / 180
+      return { rad, key: i, len: 55 + (i % 3) * 35 }
+    })
+  }, [])
+
+  return (
+    <motion.svg
+      className="absolute inset-0 w-full h-full pointer-events-none"
+      style={{ opacity: rayOpacity, filter: 'blur(1.5px)' }}
+    >
+      <defs>
+        {beams.map(({ key, rad }) => {
+          const gx = 50 + Math.cos(rad) * 50
+          const gy = 50 + Math.sin(rad) * 50
+          return (
+            <linearGradient
+              key={key}
+              id={`beam-${key}`}
+              x1="50%"
+              y1="50%"
+              x2={`${gx}%`}
+              y2={`${gy}%`}
+            >
+              <stop offset="0%" stopColor="white" stopOpacity="0.35" />
+              <stop offset="15%" stopColor="white" stopOpacity="0.1" />
+              <stop offset="100%" stopColor="white" stopOpacity="0" />
+            </linearGradient>
+          )
+        })}
+      </defs>
+      {beams.map(({ rad, len, key }) => {
+        const x = 50 + Math.cos(rad) * len
+        const y = 50 + Math.sin(rad) * len
+        return (
+          <line
+            key={key}
+            x1="50%"
+            y1="50%"
+            x2={`${x}%`}
+            y2={`${y}%`}
+            stroke={`url(#beam-${key})`}
+            strokeWidth="2"
+          />
+        )
+      })}
+    </motion.svg>
+  )
+}
+
+//
+// 透视引导线 — 随速度微颤
+//
+function GuideLines({ velocity }) {
+  const jitter = useTransform(velocity, [0, 600], [0, 2.5])
+  const [tremble, setTremble] = useState(0)
+  useMotionValueEvent(jitter, 'change', (v) => setTremble(v))
+
   const lines = useMemo(() => {
     const result = []
     for (let i = 0; i < 24; i++) {
       const deg = i * 15
       const rad = (deg * Math.PI) / 180
-      const length = 300
-      const x = 50 + Math.cos(rad) * length
-      const y = 50 + Math.sin(rad) * length
-      result.push({ x, y, key: i, major: deg % 90 === 0 })
+      result.push({ rad, key: i, major: deg % 90 === 0 })
     }
     return result
   }, [])
@@ -40,96 +107,105 @@ function GuideLines() {
   return (
     <svg
       className="absolute inset-0 w-full h-full pointer-events-none"
-      style={{ opacity: 0.25, zIndex: 1 }}
+      style={{ opacity: 0.18, zIndex: 1 }}
     >
-      {lines.map(({ x, y, key, major }) => (
-        <line
-          key={key}
-          x1="50%"
-          y1="50%"
-          x2={`${x}%`}
-          y2={`${y}%`}
-          stroke={major ? '#333' : '#1a1a1a'}
-          strokeWidth={major ? '0.8' : '0.4'}
-        />
-      ))}
+      {lines.map(({ rad, key, major }) => {
+        const length = 300
+        const jRad = (tremble * Math.PI) / 180
+        const x = 50 + Math.cos(rad + jRad) * length
+        const y = 50 + Math.sin(rad + jRad) * length
+        return (
+          <line
+            key={key}
+            x1="50%"
+            y1="50%"
+            x2={`${x}%`}
+            y2={`${y}%`}
+            stroke={major ? '#333' : '#1a1a1a'}
+            strokeWidth={major ? '0.5' : '0.3'}
+          />
+        )
+      })}
     </svg>
   )
 }
 
 //
-// 单个 3D 平面 — 独立组件以保证 hooks 规则
+// single tunnel surface panel
 //
-function PlanePanel({ plane, index, cameraDepth }) {
-  const planeZ = useTransform(cameraDepth, [0, 320], ZONE[index])
-  const planeOpacity = useTransform(cameraDepth, [0, 160], [0.12, 1])
-  const planeScale = useTransform(cameraDepth, [0, 200], [0.45, 1])
-  const blurValue = useTransform(cameraDepth, [0, 300], [8, 0])
-  const blurFilter = useTransform(blurValue, (v) => `blur(${v}px)`)
+function PlanePanel({ plane, cameraDepth, velocityBlur, velocityScaleY }) {
+  const localZ      = useTransform(cameraDepth, (v) => v + Z_OFFSET[plane.id])
+  const planeScale  = useTransform(localZ, [-500, 200], [0.28, 1.1])
+  const planeOpacity = useTransform(localZ, [-500, -200], [0.03, 1])
+  const depthBlur   = useTransform(localZ, [-500, 0], [6, 0])
+  const totalBlur   = useTransform(
+    [depthBlur, velocityBlur],
+    ([d, v]) => `blur(${Math.max(d, v)}px)`,
+  )
+  // 合成完整 3D transform：translateZ + scale + velocity scaleY
+  const fullTransform = useTransform(
+    [localZ, planeScale, velocityScaleY],
+    ([z, s, vy]) => `translateZ(${z}px) scale(${s}) scaleY(${vy})`,
+  )
+
+  const dim = DIMENSIONS[plane.id]
 
   return (
     <motion.div
       className="absolute top-1/2 left-1/2"
       style={{
-        z: planeZ,
+        transform: fullTransform,
         opacity: planeOpacity,
-        scale: planeScale,
-        filter: blurFilter,
+        filter: totalBlur,
       }}
     >
-      {/* 静态 3D 定位 */}
       <div
         style={{
           transform: POSITION[plane.id],
           transformStyle: 'preserve-3d',
         }}
       >
+        {/* wall panel — monochrome, no color */}
         <div
-          className="relative rounded-2xl overflow-hidden"
+          className="relative"
           style={{
-            width: '340px',
-            height: '220px',
-            marginLeft: '-170px',
-            marginTop: '-110px',
-            background: `linear-gradient(135deg, ${plane.color}0A, ${plane.color}03)`,
-            border: `1px solid ${plane.color}20`,
-            boxShadow: `0 0 100px ${plane.color}08, inset 0 0 60px ${plane.color}04`,
+            width: `${dim.w}px`,
+            height: `${dim.h}px`,
+            marginLeft: `${-dim.w / 2}px`,
+            marginTop: `${-dim.h / 2}px`,
+            background: 'transparent',
+            border: '1px solid rgba(255,255,255,0.06)',
           }}
         >
-          {/* 网格纹理 */}
+          {/* faint grid */}
           <div
-            className="absolute inset-0 opacity-[0.07]"
+            className="absolute inset-0 opacity-[0.03]"
             style={{
               backgroundImage: `
                 linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px),
                 linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)
               `,
-              backgroundSize: '32px 32px',
+              backgroundSize: '40px 40px',
             }}
           />
 
-          {/* 内容区 */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-3xl mb-3" style={{ filter: 'grayscale(0.3)' }}>
+          {/* label + icon */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5">
+            <span className="text-base opacity-30" style={{ filter: 'grayscale(1)' }}>
               {plane.icon}
             </span>
-            <span
-              className="text-2xl font-bold tracking-[0.2em] mb-1"
-              style={{ color: plane.color }}
-            >
+            <span className="text-xs font-medium tracking-[0.15em] text-white/55">
               {plane.label}
             </span>
-            <span className="text-[10px] font-mono text-white/30 tracking-[0.4em] uppercase">
+            <span className="text-[8px] font-mono tracking-[0.3em] text-white/15 uppercase">
               {plane.sublabel}
             </span>
           </div>
 
-          {/* 面板边缘微光 */}
+          {/* subtle inner glow */}
           <div
-            className="absolute inset-0 rounded-2xl pointer-events-none"
-            style={{
-              boxShadow: `inset 0 0 40px ${plane.color}08`,
-            }}
+            className="absolute inset-0 pointer-events-none"
+            style={{ boxShadow: 'inset 0 0 30px rgba(255,255,255,0.015)' }}
           />
         </div>
       </div>
@@ -141,47 +217,128 @@ function PlanePanel({ plane, index, cameraDepth }) {
 // === PerspectiveContainer ===
 //
 export default function PerspectiveContainer() {
-  const { scrollYProgress } = useScroll()
-  const cameraDepth = useTransform(scrollYProgress, [0, 1], [0, 320])
+  const { scrollYProgress, scrollY } = useScroll()
+  const scrollVelocity = useVelocity(scrollY)
+
+  // camera depth: scroll 0→1 maps to Z -500→200 (far → near)
+  const cameraDepth = useTransform(scrollYProgress, [0, 1], [-500, 200])
+
+  // 速度 ref — 供 R3F 粒子系统读取
+  const velocityRef = useRef(0)
+  useMotionValueEvent(scrollVelocity, 'change', (v) => {
+    velocityRef.current = v
+  })
+
+  // 粒子 Z 偏移 — 滚动位置直接控制远近（-100 深 → 5 近）
+  const particleZ = useTransform(scrollYProgress, [0, 1], [-100, 5])
+  const particleZRef = useRef(-100)
+  useMotionValueEvent(particleZ, 'change', (v) => {
+    particleZRef.current = v
+  })
+
+  // velocity-driven effects — 阈值 600 让反馈更敏锐
+  const velocityBlur   = useTransform(scrollVelocity, [0, 600], [0, 15])
+  const velocityScaleY  = useTransform(scrollVelocity, [0, 600], [1, 1.3])
+
+  // 键盘 ↑↓ 控制 — RAF 平滑滚动
+  useEffect(() => {
+    const keyState = { up: false, down: false }
+    const SPEED = 2 // px/frame
+
+    const onKeyDown = (e) => {
+      if (e.key === 'ArrowUp')    { e.preventDefault(); keyState.up = true }
+      if (e.key === 'ArrowDown')  { e.preventDefault(); keyState.down = true }
+    }
+    const onKeyUp = (e) => {
+      if (e.key === 'ArrowUp')    keyState.up = false
+      if (e.key === 'ArrowDown')  keyState.down = false
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
+
+    let raf
+    const tick = () => {
+      if (keyState.up)   window.scrollBy(0, -SPEED)
+      if (keyState.down) window.scrollBy(0, SPEED)
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+      cancelAnimationFrame(raf)
+    }
+  }, [])
 
   return (
     <div className="fixed inset-0 bg-[#050505] overflow-hidden z-0">
-      {/* === 3D 透视环境 === */}
+      {/* --- Three.js 粒子场（底层） --- */}
+      <TunnelParticles velocityRef={velocityRef} zOffsetRef={particleZRef} />
+
       <div
         className="absolute inset-0"
         style={{
-          perspective: '400px',
+          perspective: '300px',
           perspectiveOrigin: 'center center',
         }}
       >
-        {/* ---------- 消失点光晕 ---------- */}
+        {/* --- vanishing point glow --- */}
         <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 0 }}>
+          {/* 外层柔光 */}
           <div
             className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
             style={{
-              width: '80px',
-              height: '80px',
+              width: '120px',
+              height: '120px',
               background:
-                'radial-gradient(circle, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.06) 40%, transparent 70%)',
-              filter: 'blur(30px)',
+                'radial-gradient(circle, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.06) 35%, transparent 65%)',
+              filter: 'blur(35px)',
             }}
           />
+          {/* 内层光晕 */}
           <div
             className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
             style={{
-              width: '4px',
-              height: '4px',
+              width: '40px',
+              height: '40px',
+              background:
+                'radial-gradient(circle, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.1) 50%, transparent 100%)',
+              filter: 'blur(12px)',
+            }}
+          />
+          {/* 呼吸光环 */}
+          <motion.div
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none"
+            style={{
+              width: '60px',
+              height: '60px',
+              border: '1px solid rgba(255,255,255,0.04)',
+            }}
+            animate={{ scale: [1, 1.3, 1], opacity: [0.5, 0.15, 0.5] }}
+            transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
+          />
+          {/* 中心亮点 */}
+          <div
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+            style={{
+              width: '3px',
+              height: '3px',
               background: '#fff',
               borderRadius: '50%',
-              boxShadow: '0 0 12px 4px rgba(255,255,255,0.5)',
+              boxShadow: '0 0 14px 5px rgba(255,255,255,0.5)',
             }}
           />
         </div>
 
-        {/* ---------- 透视引导线 ---------- */}
-        <GuideLines />
+        {/* --- light rays from vanishing point --- */}
+        <LightRays velocity={scrollVelocity} />
 
-        {/* ---------- 3D 场景层 ---------- */}
+        {/* --- guide lines (velocity-trembling) --- */}
+        <GuideLines velocity={scrollVelocity} />
+
+        {/* --- 3D scene layer --- */}
         <div
           className="absolute inset-0"
           style={{
@@ -189,19 +346,20 @@ export default function PerspectiveContainer() {
             zIndex: 2,
           }}
         >
-          {PLANES.map((plane, i) => (
+          {PLANES.map((plane) => (
             <PlanePanel
               key={plane.id}
               plane={plane}
-              index={i}
               cameraDepth={cameraDepth}
+              velocityBlur={velocityBlur}
+              velocityScaleY={velocityScaleY}
             />
           ))}
         </div>
 
-        {/* ---------- 底部提示 ---------- */}
+        {/* --- bottom hint --- */}
         <div
-          className="absolute bottom-8 left-1/2 -translate-x-1/2 text-white/20 text-[10px] font-mono tracking-[0.3em] pointer-events-none select-none"
+          className="absolute bottom-8 left-1/2 -translate-x-1/2 text-white/10 text-[10px] font-mono tracking-[0.3em] pointer-events-none select-none"
           style={{ zIndex: 10 }}
         >
           SCROLL TO EXPLORE · TIME TUNNEL

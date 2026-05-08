@@ -1,82 +1,30 @@
-Personal Portfolio Development Spec: Time Tunnel & Time Metaphor Edition
-1. Core Design Philosophy
-Visual Theme: A 3D "Time Tunnel" based on one-point perspective.
+时空隧道主页重构：去界面化与强化纵深
+1. 核心视觉：重现黑白冲击力
+强制色彩：除背景 #050505 外，所有元素（图标、文字）必须是纯白色或极淡灰色。立即取消目前的彩色图标。
 
-Metaphor: The central vanishing point represents the "source of inspiration/the future," while elements flying outward represent "past works/the accumulation of time."
+消失点光晕：在屏幕中心设置一个微弱的白色光晕点，作为隧道的尽头。
 
-Atmosphere: Minimalist, dark, profound, and cinematic with high contrast—emphasizing spatial storytelling.
+2. 布局：把卡片变成“空间表面”
+放弃僵硬方块：取消目前的网格线卡片。将四个分支（摄影、视频、设计、创意）的标题和图标，改为贴合隧道的四个面。
 
-2. Technical Stack
-Framework: Next.js (App Router)
+强化透视设置：
 
-Animation: Framer Motion (Essential for scroll-driven Z-axis displacement and physics-based effects)
+容器 perspective: 300px（强化拉伸感）。
 
-Styling: Tailwind CSS
+Left (摄影): 组件旋转 -75deg (Y 轴)，像左墙。
 
-Rendering: Prioritize CSS 3D Transforms to maintain a raw, high-end web aesthetic.
+Right (设计): 组件旋转 75deg (Y 轴)，像右墙。
 
-3. Visual System
-Color Palette:
+Top (视频) & Bottom (创意): 分别设置 -100px 和 100px 的 Z 轴位移。
 
-Background: Deep Black #050505.
+3. 动态：滚轮驱动的穿梭感
+实现 Z 轴位移：利用 Framer Motion 的 useScroll。当我滚动滚轮时，所有组件的 z 轴坐标必须从 -500px 平滑飞向 200px。
 
-Vanishing Point: A white center point with a 50px radius blur glow (Bloom Effect) at the horizon.
+加入动态模糊：最关键的一步。 监听滚动速度 (useVelocity)。
 
-Guidelines: 1px wide ultra-long lines (mimicking the reference image), color: Dark Gray #222222, shifting with scroll velocity.
+当快速滚动时，所有组件（尤其是边缘）增加 filter: blur(15px) 和 scaleY(1.3)（纵向拉伸），模拟时空隧道。
 
-Perspective Settings:
+4. 细节优化：增加技术刻度
+光束辅助线：模仿案例图，从消失点引出极长的、1px 宽的深灰色（#222222）光线，随速度微颤。
 
-Parent Container: perspective: 400px (To intensify depth and create visual compression).
-
-Vanishing Point Origin: perspective-origin: center center.
-
-Layout Planes:
-
-Top Plane: Video branch.
-
-Bottom Plane: Ideas/Thoughts branch.
-
-Left Plane: Photography branch.
-
-Right Plane: Design/Architecture branch.
-
-4. Interaction Mechanics
-A. Scroll-Driven Z-Axis
-Driver: Listen to page scroll progress using useScroll.
-
-Mapping: Map the scroll progress to the translateZ coordinates of all components.
-
-Layering: Distribute projects along the Z-axis with varying intervals.
-
-Distal (Near Center): opacity: 0, scale: 0.1.
-
-Proximal (Flying Toward User): opacity fades in to 1, scale increases.
-
-B. Motion Blur & Velocity
-Physics: Calculate scroll velocity using useVelocity.
-
-Visual Feedback:
-
-High Velocity: Apply filter: blur(10px) and scaleY(1.2) (vertical stretch) to components to simulate "time travel."
-
-Static/Slow: Smoothly transition back to sharp focus.
-
-C. Focus & Click Interaction
-Hit-Zone Logic: Trigger a "Focus" state when a project's translateZ enters a specific "near-field" range (e.g., [-100px, 0px]).
-
-Focus Feedback:
-
-The component's 3D rotation (rotateX/Y) resets to zero, facing the user directly.
-
-Display a bold white title (e.g., PROJECT 2026).
-
-Navigation: Clicking a focused project triggers a full-screen expansion animation, where the background tunnel "explodes" outward.
-
-5. UI Details & Ornamentation
-Custom Cursor: A 10px white ring with a center pixel-dot, providing scale feedback on hover.
-
-Metadata: Minimal 8pt fonts in the corners displaying dynamic info:
-
-Creative Year: A virtual timestamp that changes based on scroll depth.
-
-Real-time Coordinates: Mouse X/Y pixel values.
+点击交互判定：点击时，隧道“炸开”，所选作品全屏展开。
