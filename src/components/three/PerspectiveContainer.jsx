@@ -284,9 +284,20 @@ export default function PerspectiveContainer() {
           perspectiveOrigin: 'center center',
         }}
       >
-        {/* --- vanishing point glow --- */}
+        {/* --- vanishing point glow (enhanced) --- */}
         <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 0 }}>
-          {/* 外层柔光 */}
+          {/* 超大外层 — 弥散柔光 */}
+          <div
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+            style={{
+              width: '260px',
+              height: '260px',
+              background:
+                'radial-gradient(circle, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.03) 40%, transparent 70%)',
+              filter: 'blur(60px)',
+            }}
+          />
+          {/* 中层光晕 */}
           <div
             className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
             style={{
@@ -308,26 +319,48 @@ export default function PerspectiveContainer() {
               filter: 'blur(12px)',
             }}
           />
-          {/* 呼吸光环 */}
+          {/* 呼吸光环 1 — 主环 */}
           <motion.div
             className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none"
             style={{
-              width: '60px',
-              height: '60px',
-              border: '1px solid rgba(255,255,255,0.04)',
+              width: '70px',
+              height: '70px',
+              border: '1px solid rgba(255,255,255,0.05)',
             }}
-            animate={{ scale: [1, 1.3, 1], opacity: [0.5, 0.15, 0.5] }}
+            animate={{ scale: [1, 1.35, 1], opacity: [0.55, 0.12, 0.55] }}
             transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
+          />
+          {/* 呼吸光环 2 — 更大更慢 */}
+          <motion.div
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none"
+            style={{
+              width: '110px',
+              height: '110px',
+              border: '1px solid rgba(255,255,255,0.025)',
+            }}
+            animate={{ scale: [1, 1.25, 1], opacity: [0.35, 0.06, 0.35] }}
+            transition={{ duration: 5.2, repeat: Infinity, ease: 'easeInOut', delay: 0.8 }}
+          />
+          {/* 呼吸光环 3 — 小且快 */}
+          <motion.div
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none"
+            style={{
+              width: '30px',
+              height: '30px',
+              border: '1px solid rgba(255,255,255,0.07)',
+            }}
+            animate={{ scale: [1, 1.45, 1], opacity: [0.6, 0.2, 0.6] }}
+            transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut', delay: 0.3 }}
           />
           {/* 中心亮点 */}
           <div
             className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
             style={{
-              width: '3px',
-              height: '3px',
+              width: '4px',
+              height: '4px',
               background: '#fff',
               borderRadius: '50%',
-              boxShadow: '0 0 14px 5px rgba(255,255,255,0.5)',
+              boxShadow: '0 0 20px 8px rgba(255,255,255,0.55), 0 0 60px 20px rgba(255,255,255,0.15)',
             }}
           />
         </div>
