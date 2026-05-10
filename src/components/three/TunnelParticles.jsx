@@ -166,10 +166,89 @@ function CenterStreaks({ velocityRef }) {
 
 // ── cuboid field ──────────────────────────────────────────────────────
 
+const LABELS = ['摄影', '设计', '视频', '创意']
+const ENG_LABELS = ['PHOTOGRAPHY', 'DESIGN', 'VIDEO', 'IDEAS']
+
 function CuboidField({ velocityRef, zOffsetRef }) {
-  const meshRefs = useRef([])
+  const groupRefs = useRef([])
   const baseZ = useRef(CUBOIDS.map(c => c.z))
   const drift = useRef(0)
+
+  const edgeGeos = useMemo(() =>
+    CUBOIDS.map(c => new THREE.EdgesGeometry(new THREE.BoxGeometry(...c.size)))
+  , [])
+
+  const chTextures = useMemo(() =>
+    LABELS.map(label => {
+      const canvas = document.createElement('canvas')
+      canvas.width = 1024
+      canvas.height = 1024
+      const ctx = canvas.getContext('2d')
+      const chars = [...label]
+      const fontSize = 340
+      ctx.font = `${fontSize}px "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+
+      // vertical layout — stack characters top to bottom
+      const cx = 512
+      const gap = fontSize * 1.15
+      const totalH = (chars.length - 1) * gap
+      const startY = 512 - totalH / 2
+
+      chars.forEach((ch, idx) => {
+        const y = startY + idx * gap
+        ctx.strokeStyle = 'rgba(0,0,0,0.15)'
+        ctx.lineWidth = 4
+        ctx.strokeText(ch, cx, y)
+        ctx.fillStyle = '#ffffff'
+        ctx.fillText(ch, cx, y)
+      })
+
+      const tex = new THREE.CanvasTexture(canvas)
+      tex.minFilter = THREE.LinearFilter
+      tex.magFilter = THREE.LinearFilter
+      tex.colorSpace = THREE.SRGBColorSpace
+      return tex
+    })
+  , [])
+
+  const enTextures = useMemo(() =>
+    ENG_LABELS.map(word => {
+      const canvas = document.createElement('canvas')
+      canvas.width = 1024
+      canvas.height = 1024
+      const ctx = canvas.getContext('2d')
+
+      // fill entire canvas with repeated English word in a grid
+      const fontSize = word.length > 6 ? 52 : 64
+      ctx.font = `600 ${fontSize}px "Helvetica Neue", Arial, sans-serif`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillStyle = 'rgba(255,255,255,0.22)'
+
+      const cols = word.length > 6 ? 4 : 5
+      const cellW = 1024 / cols
+      const cellH = fontSize * 1.6
+      const rows = Math.ceil(1024 / cellH) + 1
+
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          const x = col * cellW + cellW / 2
+          const y = row * cellH + cellH / 2
+          ctx.fillText(word, x, y)
+        }
+      }
+
+      const tex = new THREE.CanvasTexture(canvas)
+      tex.minFilter = THREE.LinearFilter
+      tex.magFilter = THREE.LinearFilter
+      tex.wrapS = THREE.RepeatWrapping
+      tex.wrapT = THREE.RepeatWrapping
+      tex.colorSpace = THREE.SRGBColorSpace
+      return tex
+    })
+  , [])
 
   useFrame((_, delta) => {
     const vel = velocityRef.current
@@ -181,8 +260,8 @@ function CuboidField({ velocityRef, zOffsetRef }) {
     if (drift.current < -600) drift.current += 600
 
     CUBOIDS.forEach((c, i) => {
-      const mesh = meshRefs.current[i]
-      if (!mesh) return
+      const group = groupRefs.current[i]
+      if (!group) return
 
       baseZ.current[i] += BASE_SPEED * dt
       let displayZ = baseZ.current[i] + zOff + drift.current
@@ -192,27 +271,62 @@ function CuboidField({ velocityRef, zOffsetRef }) {
         displayZ = baseZ.current[i] + zOff + drift.current
       }
 
-      mesh.position.set(c.x, c.y, displayZ)
+      group.position.set(c.x, c.y, displayZ)
     })
   })
 
   return (
     <>
       {CUBOIDS.map((c, i) => (
-        <mesh
+        <group
           key={c.id}
-          ref={(el) => { meshRefs.current[i] = el }}
+          ref={(el) => { groupRefs.current[i] = el }}
           position={[c.x, c.y, c.z]}
           frustumCulled={false}
         >
-          <boxGeometry args={c.size} />
-          <meshStandardMaterial
-            color="white"
-            toneMapped={false}
-            roughness={0.55}
-            metalness={0}
-          />
-        </mesh>
+          <mesh>
+            <boxGeometry args={c.size} />
+            <meshStandardMaterial
+              color="white"
+              toneMapped={false}
+              roughness={0.4}
+              metalness={0}
+              polygonOffset
+              polygonOffsetFactor={1}
+              polygonOffsetUnits={1}
+            />
+          </mesh>
+          <lineSegments geometry={edgeGeos[i]}>
+            <lineBasicMaterial
+              color="#0a0a0a"
+              toneMapped={false}
+            />
+          </lineSegments>
+          {/* English text — full-face background grid, avoids Chinese area */}
+          <mesh position={[0, 0, c.size[2] / 2 + 0.03]}>
+            <planeGeometry args={[c.size[0] * 0.96, c.size[1] * 0.96]} />
+            <meshBasicMaterial
+              map={enTextures[i]}
+              transparent
+              toneMapped={false}
+              depthWrite={false}
+            />
+          </mesh>
+          {/* Chinese text — offset toward vanishing point, sits on top */}
+          <mesh position={[
+            -Math.sign(c.x) * c.size[0] * 0.28,
+            -Math.sign(c.y) * c.size[1] * 0.28,
+            c.size[2] / 2 + 0.06,
+          ]}>
+            <planeGeometry args={[c.size[0] * 0.65, c.size[1] * 0.65]} />
+            <meshBasicMaterial
+              map={chTextures[i]}
+              transparent
+              toneMapped={false}
+              depthWrite={false}
+            />
+          </mesh>
+        </group>
       ))}
     </>
   )

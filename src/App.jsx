@@ -9,8 +9,8 @@ import TsinghuaProject from './pages/TsinghuaProject'
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Layout />}>
-        <Route index element={<Home />} />
+      <Route index element={<Home />} />
+      <Route element={<Layout />}>
         <Route path="about" element={<About />} />
         <Route path="portfolio" element={<Portfolio />} />
         <Route path="portfolio/tsinghua" element={<TsinghuaProject />} />
