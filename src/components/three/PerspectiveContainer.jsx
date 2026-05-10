@@ -1,5 +1,4 @@
 import { useMemo, useState, useRef, useEffect } from 'react'
-import { NavLink } from 'react-router-dom'
 import { motion, useScroll, useVelocity, useTransform, useMotionValueEvent } from 'framer-motion'
 import TunnelParticles from './TunnelParticles'
 
@@ -128,63 +127,6 @@ function GuideLines({ velocity }) {
         )
       })}
     </svg>
-  )
-}
-
-//
-// ── 透视导航 ──────────────────────────────────────────────────────────
-// Nav links floating in tunnel space with perspective depth effects
-//
-function PerspectiveNav({ cameraDepth, velocityBlur }) {
-  const navZ       = useTransform(cameraDepth, [-500, 200], [-100, -25])
-  const navScale   = useTransform(cameraDepth, [-500, 200], [0.75, 1.05])
-  const navOpacity = useTransform(cameraDepth, [-500, -250], [0.15, 1])
-  const depthBlur  = useTransform(cameraDepth, [-500, 0], [5, 0])
-  const totalBlur  = useTransform(
-    [depthBlur, velocityBlur],
-    ([d, v]) => `blur(${Math.max(d, v)}px)`,
-  )
-  const navTransform = useTransform(
-    [navZ, navScale],
-    ([z, s]) => `translateZ(${z}px) translateX(-50%) scale(${s})`,
-  )
-
-  const links = [
-    { to: '/',          label: '首页' },
-    { to: '/about',     label: '关于' },
-    { to: '/portfolio', label: '作品集' },
-    { to: '/contact',   label: '联系' },
-  ]
-
-  return (
-    <motion.div
-      className="absolute top-6 left-1/2"
-      style={{
-        transform: navTransform,
-        filter: totalBlur,
-        opacity: navOpacity,
-        zIndex: 8,
-        transformStyle: 'preserve-3d',
-        pointerEvents: 'none',
-      }}
-    >
-      <div className="flex gap-8">
-        {links.map(link => (
-          <NavLink
-            key={link.to}
-            to={link.to}
-            end={link.to === '/'}
-            className="pointer-events-auto text-xs font-mono tracking-[0.2em] text-white/45 hover:text-white/85 transition-colors"
-            style={({ isActive }) => isActive
-              ? { color: 'rgba(255,255,255,0.92)', textShadow: '0 0 10px rgba(255,255,255,0.25)' }
-              : undefined
-            }
-          >
-            {link.label}
-          </NavLink>
-        ))}
-      </div>
-    </motion.div>
   )
 }
 
@@ -428,9 +370,6 @@ export default function PerspectiveContainer() {
 
         {/* --- guide lines (velocity-trembling) --- */}
         <GuideLines velocity={scrollVelocity} />
-
-        {/* --- perspective nav --- */}
-        <PerspectiveNav cameraDepth={cameraDepth} velocityBlur={velocityBlur} />
 
         {/* --- 3D scene layer --- */}
         <div
