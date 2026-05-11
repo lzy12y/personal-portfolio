@@ -1,4 +1,5 @@
 import { useRef, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { EffectComposer, Bloom, Noise } from '@react-three/postprocessing'
 import * as THREE from 'three'
@@ -168,11 +169,19 @@ function CenterStreaks({ velocityRef }) {
 
 const LABELS = ['摄影', '设计', '视频', '创意']
 const ENG_LABELS = ['PHOTOGRAPHY', 'DESIGN', 'VIDEO', 'IDEAS']
+const CATEGORY_ROUTES = {
+  摄影: '/photography',
+  设计: '/portfolio',
+  视频: '/video',
+  创意: '/ideas',
+}
 
 function CuboidField({ velocityRef, zOffsetRef }) {
   const groupRefs = useRef([])
   const baseZ = useRef(CUBOIDS.map(c => c.z))
   const drift = useRef(0)
+  const hoveredRef = useRef(-1)
+  const navigate = useNavigate() // index of currently hovered cuboid
 
   const edgeGeos = useMemo(() =>
     CUBOIDS.map(c => new THREE.EdgesGeometry(new THREE.BoxGeometry(...c.size)))
@@ -263,6 +272,9 @@ function CuboidField({ velocityRef, zOffsetRef }) {
       const group = groupRefs.current[i]
       if (!group) return
 
+      // freeze hovered cuboid in place
+      if (hoveredRef.current === i) return
+
       baseZ.current[i] += BASE_SPEED * dt
       let displayZ = baseZ.current[i] + zOff + drift.current
 
@@ -283,6 +295,19 @@ function CuboidField({ velocityRef, zOffsetRef }) {
           ref={(el) => { groupRefs.current[i] = el }}
           position={[c.x, c.y, c.z]}
           frustumCulled={false}
+          onPointerEnter={() => {
+            hoveredRef.current = i
+            document.body.style.cursor = 'pointer'
+          }}
+          onPointerLeave={() => {
+            hoveredRef.current = -1
+            document.body.style.cursor = ''
+          }}
+          onClick={(e) => {
+            e.stopPropagation()
+            const route = CATEGORY_ROUTES[LABELS[i]]
+            if (route) navigate(route)
+          }}
         >
           <mesh>
             <boxGeometry args={c.size} />
@@ -339,7 +364,7 @@ export default function TunnelParticles({ velocityRef, zOffsetRef }) {
         position: 'absolute',
         inset: 0,
         zIndex: 0,
-        pointerEvents: 'none',
+        pointerEvents: 'auto',
       }}
       gl={{ antialias: false, alpha: true }}
       camera={{ fov: 38, near: 0.1, far: 1500, position: [0, 0, 0] }}

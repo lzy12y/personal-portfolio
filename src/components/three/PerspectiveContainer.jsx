@@ -278,7 +278,7 @@ export default function PerspectiveContainer() {
       <TunnelParticles velocityRef={velocityRef} zOffsetRef={particleZRef} />
 
       <div
-        className="absolute inset-0"
+        className="absolute inset-0 pointer-events-none"
         style={{
           perspective: '300px',
           perspectiveOrigin: 'center center',
@@ -373,7 +373,7 @@ export default function PerspectiveContainer() {
 
         {/* --- 3D scene layer --- */}
         <div
-          className="absolute inset-0"
+          className="absolute inset-0 pointer-events-none"
           style={{
             transformStyle: 'preserve-3d',
             zIndex: 2,
