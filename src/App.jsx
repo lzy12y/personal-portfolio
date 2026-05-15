@@ -1,5 +1,5 @@
 import { Routes, Route } from 'react-router-dom'
-import Layout from './components/Layout'
+import EditToggle from './components/EditToggle'
 import Hero from './pages/Hero'
 import Home from './pages/Home'
 import About from './pages/About'
@@ -12,10 +12,10 @@ import TsinghuaProject from './pages/TsinghuaProject'
 
 export default function App() {
   return (
-    <Routes>
-      <Route index element={<Hero />} />
-      <Route path="tunnel" element={<Home />} />
-      <Route element={<Layout />}>
+    <>
+      <Routes>
+        <Route index element={<Hero />} />
+        <Route path="tunnel" element={<Home />} />
         <Route path="about" element={<About />} />
         <Route path="portfolio" element={<Portfolio />} />
         <Route path="portfolio/tsinghua" element={<TsinghuaProject />} />
@@ -23,7 +23,8 @@ export default function App() {
         <Route path="video" element={<Video />} />
         <Route path="ideas" element={<Ideas />} />
         <Route path="contact" element={<Contact />} />
-      </Route>
-    </Routes>
+      </Routes>
+      <EditToggle />
+    </>
   )
 }
